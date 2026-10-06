@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mold Shot & PM Tracking Dashboard</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 for beautiful popups -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Kanit', 'sans-serif'] },
+                    colors: {
+                        primary: '#6b21a8', // Purple 800
+                        primary_light: '#9333ea', // Purple 600
+                        primary_dark: '#4c1d95', // Purple 900
+                        secondary: '#d8b4fe', // Purple 300
+                        safe: '#16a34a', // Green
+                        warning: '#f59e0b', // Amber
+                        critical: '#ea580c', // Orange
+                        danger: '#dc2626', // Red
+                        panel: '#ffffff'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f8fafc; color: #334155; padding-bottom: 40px; }
+        
+        /* Background & Aesthetics */
+        .bg-fixed-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
+        .bg-fixed-container::before {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at top right, rgba(233, 213, 255, 0.4), transparent 50%),
+                        radial-gradient(circle at bottom left, rgba(216, 180, 254, 0.3), transparent 50%);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f3e8ff; }
+        ::-webkit-scrollbar-thumb { background: #c084fc; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9333ea; }
+
+        /* Donut Chart SVG */
+        .circular-chart { display: block; max-width: 100%; max-height: 100%; transform: rotate(-90deg); }
+        .circle-bg { fill: none; stroke: #f3e8ff; stroke-width: 3.5; }
+        .circle { fill: none; stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 1s ease-out, stroke 0.5s ease; }
+
+        /* Smooth Collapse */
+        .collapsible-content { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.3s ease-out; }
+        .collapsible-content.collapsed { grid-template-rows: 0fr; }
+        .collapsible-content > div { overflow: hidden; }
+
+        /* Footer Marquee Animation */
+        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-marquee { display: inline-block; white-space: nowrap; animation: marquee 25s linear infinite; }
+
+        /* Clickable Cell Styling */
+        .editable-cell { cursor: pointer; transition: all 0.2s; position: relative; }
+        .editable-cell:hover { background-color: #f3e8ff !important; box-shadow: inset 0 0 0 1.5px #9333ea; border-radius: 4px; }
+        
+        .section-header { background: linear-gradient(135deg, #6b21a8, #4c1d95); box-shadow: 0 4px 6px -1px rgba(107, 33, 168, 0.3); } 
+        
+        /* Status colors */
+        .text-safe { color: #16a34a; } .text-warning { color: #d97706; }
+        .text-critical { color: #ea580c; } .text-due { color: #dc2626; font-weight: 800; }
+
+        /* LOGIN PAGE STYLES */
+        .login-bg {
+            background-image: url('https://i.postimg.cc/nVRC1mfB/Gemini-Generated-Image-hmpa8phmpa8phmpa-(1).jpg');
+            background-size: cover; background-position: center;
+            filter: blur(5px) brightness(0.7);
+            animation: panBg 20s ease-in-out infinite alternate;
+        }
+        @keyframes panBg { 0% { transform: scale(1.05) translate(0, 0); } 100% { transform: scale(1.1) translate(-2%, -2%); } }
+        
+        /* Animated Logo Border */
+        .logo-border-wrap {
+            position: relative; padding: 4px; border-radius: 16px; overflow: hidden;
+            display: inline-block; background: rgba(255, 255, 255, 0.1);
+        }
+        .logo-border-wrap::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: conic-gradient(transparent, transparent, transparent, #c084fc, #7e22ce);
+            animation: rotateBorder 3s linear infinite;
+        }
+        .logo-inner { position: relative; background: #ffffff; border-radius: 12px; padding: 12px; z-index: 10; display: block; }
+        @keyframes rotateBorder { 100% { transform: rotate(360deg); } }
+
+        /* NATIVE PRINT STYLES - Solves Thai Font & PDF issues completely */
+        @media print {
+            body { background-color: white !important; margin: 0; padding: 0; font-size: 10pt; }
+            .no-print, header, footer, #login-overlay, .bg-fixed-container { display: none !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; font-family: 'Kanit', sans-serif !important; }
+            
+            #main-content { max-width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+            
+            /* Print sections neatly */
+            .section-header { background: #6b21a8 !important; color: white !important; -webkit-print-color-adjust: exact; }
+            .collapsible-content { grid-template-rows: 1fr !important; display: block !important; }
+            .collapsible-content > div { overflow: visible !important; }
+            
+            table { width: 100% !important; border-collapse: collapse !important; table-layout: auto !important; }
+            th, td { border: 1px solid #cbd5e1 !important; padding: 4px 6px !important; white-space: normal !important; font-size: 9pt !important; }
+            th { background-color: #f3e8ff !important; color: #4c1d95 !important; }
+            
+            .shadow-md, .shadow-lg, .rounded-xl { box-shadow: none !important; border-radius: 0 !important; }
+            .border-slate-200 { border-color: #cbd5e1 !important; }
+            
+            /* Avoid breaking inside important blocks */
+            tr, .section-header, .print-avoid-break { page-break-inside: avoid !important; }
+            
+            @page { size: A4 portrait; margin: 10mm; }
+        }
+        
+        /* Specific Print class triggered by JS */
+        body.print-landscape @page { size: A4 landscape; margin: 10mm; }
+    </style>
+</head>
+<body class="antialiased overflow-x-hidden text-sm relative">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-overlay" class="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 login-bg transform scale-105"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-purple-900/60 to-slate-900/90 mix-blend-multiply"></div>
+        
+        <div class="relative z-10 w-full max-w-md p-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-[0_0_40px_rgba(107,33,168,0.4)] flex flex-col items-center transform transition-all duration-500 hover:scale-[1.02]">
+            
+            <div class="logo-border-wrap mb-6 shadow-2xl">
+                <div class="logo-inner">
+                    <img src="https://i.postimg.cc/rwBR7zL1/message-Image-1787986866051.jpg" alt="Logo" class="h-16 w-auto object-contain">
+                </div>
+            </div>
+            
+            <h2 class="text-2xl font-black text-white tracking-wide uppercase mb-1 drop-shadow-md">PM Tracking System</h2>
+            <p class="text-purple-200 text-xs font-bold tracking-widest uppercase mb-8 opacity-80">Able Medical Company Limited</p>
+            
+            <div class="w-full space-y-4">
+                <div class="relative">
+                    <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-purple-300"></i>
+                    <input type="text" id="login-id" placeholder="รหัสพนักงาน (ID)" class="w-full bg-white/20 border border-white/30 text-white placeholder-purple-200 rounded-xl py-3 pl-10 pr-4 outline-none focus:bg-white/30 focus:border-purple-300 transition-all font-medium">
+                </div>
+                <div class="relative">
+                    <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-purple-300"></i>
+                    <!-- Input Type Password to mask text -->
+                    <input type="password" id="login-pass" placeholder="รหัสผ่าน (Password)" class="w-full bg-white/20 border border-white/30 text-white placeholder-purple-200 rounded-xl py-3 pl-10 pr-4 outline-none focus:bg-white/30 focus:border-purple-300 transition-all font-medium" onkeypress="if(event.key === 'Enter') handleLogin()">
+                </div>
+                
+                <button onclick="handleLogin()" id="btn-login" class="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-700 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
+                </button>
+            </div>
+            
+            <div id="login-status" class="mt-5 text-sm font-bold text-center h-5 transition-colors"></div>
+        </div>
+    </div>
+
+    <!-- Fixed Background Image for Main App -->
+    <div class="bg-fixed-container no-print"></div>
+
+    <!-- Scrolling Footer -->
+    <footer class="fixed bottom-0 w-full bg-slate-900 text-purple-200 text-xs py-1.5 z-40 border-t border-purple-900/50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)] no-print">
+        <div class="overflow-hidden whitespace-nowrap w-full">
+            <div class="animate-marquee font-medium tracking-wider">
+                <i class="fa-solid fa-gears text-purple-400 mr-2"></i> พัฒนาโดย แผนก PE (Utility) | Able Medical Company Limited <i class="fa-solid fa-gears text-purple-400 ml-2"></i>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Smart Overdue Alert Popup -->
+    <div id="pm-alert-popup" class="fixed bottom-12 right-4 bg-red-600 text-white p-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.5)] z-50 transform translate-y-20 opacity-0 transition-all duration-500 hidden border-2 border-white no-print">
+        <div class="flex items-start gap-3">
+            <div class="text-3xl animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+                <h4 class="font-bold text-lg mb-1">แจ้งเตือน PM ถึงกำหนด!</h4>
+                <p class="text-sm font-medium mb-3">พบแม่พิมพ์เกินรอบ PM กรุณาดำเนินการซ่อมบำรุง</p>
+                <button onclick="dismissAlert()" class="bg-white text-red-600 hover:bg-red-50 font-bold px-4 py-2 rounded-lg shadow text-xs transition hover:-translate-y-0.5">รับทราบ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="bg-purple-950 text-purple-200 text-[11px] px-5 py-1.5 flex justify-between items-center fixed top-0 w-full z-40 shadow-md border-b border-purple-800 no-print">
+        <div class="flex items-center gap-2">
+            <i id="sync-icon" class="fa-solid fa-circle text-safe text-[8px] animate-pulse"></i> 
+            <span id="system-status" class="font-bold tracking-wide text-white">รอการเข้าสู่ระบบ...</span>
+        </div>
+        <div id="current-datetime" class="font-mono font-bold tracking-wider text-purple-100"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="main-content" class="container mx-auto px-2 sm:px-4 py-12 mt-2 max-w-[1400px] hidden opacity-0 transition-opacity duration-1000">
+        
+        <header class="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-5 md:p-6 mb-6 flex flex-col xl:flex-row justify-between items-center xl:items-start border-t-[6px] border-primary gap-6">
+            <!-- Logos & Title -->
+            <div class="flex items-center gap-5 w-full xl:w-auto shrink-0">
+                <div class="p-2 bg-white rounded-xl shadow-sm border border-purple-100">
+                    <img src="https://i.postimg.cc/rwBR7zL1/message-Image-1787986866051.jpg" alt="Company Logo" class="h-16 md:h-20 w-auto object-contain">
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight leading-tight uppercase">บันทึกการใช้งานและติดตาม PM</h1>
+                    <p class="text-primary_light text-sm font-bold tracking-wide mt-1"><i class="fa-solid fa-industry mr-1"></i> Mold Shot & Maintenance Dashboard</p>
+                </div>
+            </div>
+
+            <!-- Global Controls -->
+            <div class="flex flex-col gap-4 w-full xl:w-auto no-print items-end justify-center h-full">
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap items-center gap-2.5 w-full justify-end">
+                    <button onclick="openAddMoldModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-xs md:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                        <i class="fa-solid fa-folder-plus"></i> <span class="hidden sm:inline">เพิ่มแม่พิมพ์</span><span class="sm:hidden">เพิ่ม</span>
+                    </button>
+                    <button onclick="openTrendModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-xs md:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                        <i class="fa-solid fa-chart-line"></i> <span class="hidden sm:inline">กราฟ Trend</span><span class="sm:hidden">กราฟ</span>
+                    </button>
+                    
+                    <div class="relative group no-print">
+                        <button class="bg-slate-700 hover:bg-slate-800 text-white px-3 md:px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-xs md:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer">
+                            <i class="fa-solid fa-print"></i> <span>ปริ้นรายงาน</span> <i class="fa-solid fa-chevron-down ml-1 text-[10px]"></i>
+                        </button>
+                        <div class="absolute right-0 top-full mt-1 w-60 bg-white rounded-xl shadow-xl border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50 overflow-hidden">
+                            <button onclick="printNative('section-2')" class="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 font-bold border-b border-slate-100 transition-colors flex items-center gap-2">
+                                <i class="fa-solid fa-table text-purple-500 w-4"></i> ปริ้นตารางการใช้งาน (แนวนอน)
+                            </button>
+                            <button onclick="printNative('section-4')" class="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 font-bold transition-colors flex items-center gap-2">
+                                <i class="fa-solid fa-wrench text-purple-500 w-4"></i> ปริ้นรายการอะไหล่ (แนวตั้ง)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Logout Button -->
+                    <button onclick="handleLogout()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-xs md:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 ml-1">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+                
+                <!-- Filter Bar -->
+                <div class="flex flex-wrap gap-2 items-center bg-purple-50/50 p-2.5 rounded-lg border border-purple-100 w-full justify-end shadow-sm">
+                    <span class="text-[11px] md:text-xs font-extrabold text-purple-900 uppercase px-1 flex items-center"><i class="fa-solid fa-filter mr-1.5 text-purple-600"></i> ตัวกรอง:</span>
+                    <input type="date" id="date-filter" class="bg-white border border-purple-200 outline-none text-xs font-bold text-primary cursor-pointer w-[120px] rounded-md px-2 py-1.5 shadow-sm transition hover:border-purple-400">
+                    <select id="month-filter" class="bg-white border border-purple-200 outline-none text-xs font-bold text-primary cursor-pointer rounded-md px-2 py-1.5 shadow-sm transition hover:border-purple-400">
+                        <option value="all">ทุกเดือน</option> <option value="01">มกราคม</option> <option value="02">กุมภาพันธ์</option> <option value="03">มีนาคม</option> <option value="04">เมษายน</option> <option value="05">พฤษภาคม</option> <option value="06">มิถุนายน</option> <option value="07">กรกฎาคม</option> <option value="08">สิงหาคม</option> <option value="09">กันยายน</option> <option value="10">ตุลาคม</option> <option value="11">พฤศจิกายน</option> <option value="12">ธันวาคม</option>
+                    </select>
+                    <select id="year-filter" class="bg-white border border-purple-200 outline-none text-xs font-bold text-primary cursor-pointer rounded-md px-2 py-1.5 shadow-sm transition hover:border-purple-400"></select>
+                    <button onclick="clearFilters()" class="text-xs font-bold text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-600 px-3 py-1.5 rounded-md transition shadow-sm ml-1"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <div id="section-1" class="bg-white rounded-xl shadow-lg mb-6 border border-slate-200 overflow-hidden">
+            <div class="section-header text-white px-5 py-3 flex items-center justify-between cursor-pointer transition duration-300" onclick="toggleSection('sec1-content', 'sec1-icon')">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white text-primary rounded-full w-6 h-6 flex items-center justify-center font-black text-sm shadow-sm"><i class="fa-solid fa-info text-xs"></i></div>
+                    <h2 class="font-bold text-base uppercase tracking-wide">ข้อมูลแม่พิมพ์ (Mold Info) & Status</h2>
+                </div>
+                <i id="sec1-icon" class="fa-solid fa-chevron-down text-sm opacity-80 transition-transform"></i>
+            </div>
+            
+            <div class="collapsible-content collapsed" id="sec1-content">
+                <div>
+                    <div class="p-6 md:p-8 bg-slate-50 flex flex-col xl:flex-row gap-6 xl:gap-8 print-avoid-break">
+                        
+                        <!-- Basic Info (Left) - Icon Instead of Image -->
+                        <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start shrink-0 bg-white p-6 border border-slate-200 rounded-xl shadow-md w-full xl:w-[450px]">
+                            <div class="flex flex-col items-center justify-center gap-3 w-1/3 sm:w-auto">
+                                <div class="w-28 h-28 md:w-32 md:h-32 rounded-xl shadow-inner border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-white flex items-center justify-center">
+                                    <i id="current-mold-icon" class="fa-solid fa-cube text-6xl text-purple-300 drop-shadow-md transition-transform hover:scale-110 duration-300"></i>
+                                </div>
+                                <span id="current-mold-size" class="text-xs font-bold bg-slate-700 text-white px-3 py-1 rounded-full shadow border border-slate-600 tracking-wide">Size -</span>
+                            </div>
+                            <div class="flex flex-col gap-4 w-full flex-1">
+                                <div>
+                                    <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">ขนาด (Filter)</span>
+                                    <select id="size-filter" onchange="handleSizeFilterChange()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold text-slate-800 focus:outline-none focus:border-primary cursor-pointer text-sm mt-1 transition shadow-sm">
+                                        <option value="all">ทั้งหมด (All)</option>
+                                        <option value="100">Size 100</option>
+                                        <option value="1000">Size 1000</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">ชื่อแม่พิมพ์ (Name)</span>
+                                    <select id="mold-name" onchange="handleMoldChange()" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold text-primary focus:outline-none focus:border-primary cursor-pointer text-sm mt-1 truncate transition shadow-sm"></select>
+                                </div>
+                                <div class="bg-purple-50 border border-purple-100 rounded-lg p-3 shadow-inner mt-1 relative overflow-hidden">
+                                    <i class="fa-solid fa-gauge-high absolute -right-2 -bottom-2 text-5xl text-purple-200 opacity-50"></i>
+                                    <span class="text-[11px] font-extrabold text-purple-700 uppercase tracking-wider relative z-10">หน้าปัดล่าสุด (Counter)</span>
+                                    <div class="flex items-baseline gap-2 mt-1 relative z-10">
+                                        <span id="mold-current" class="font-black text-purple-900 text-3xl md:text-4xl leading-none tracking-tight">0</span>
+                                        <span class="text-xs text-purple-500 font-bold uppercase">Shots</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right side: Dual PM Status -->
+                        <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-5 xl:gap-6">
+                            
+                            <!-- PM 20K -->
+                            <div class="bg-white border border-purple-200 rounded-xl shadow-md flex flex-col p-5 md:p-6 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1" id="card-pm20k">
+                                <div class="absolute top-0 right-0 bg-purple-600 text-white text-[10px] px-3 py-1 font-bold rounded-bl-lg uppercase shadow">Minor PM</div>
+                                <h3 class="text-sm font-extrabold text-slate-700 mb-4 border-b-2 border-slate-100 pb-2">รอบ <span class="text-purple-600" id="target-20k-display">20,000</span> Shots</h3>
+                                
+                                <div class="flex items-center justify-between gap-4 h-full">
+                                    <div class="flex flex-col justify-center">
+                                        <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">คงเหลือ (Remaining)</span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span id="remain-20k" class="font-black text-4xl lg:text-5xl leading-none tracking-tighter">0</span>
+                                        </div>
+                                        <div class="mt-3 text-center inline-block w-fit" id="status-badge-20k">-</div>
+                                    </div>
+                                    <div class="relative w-28 h-28 md:w-32 md:h-32 flex items-center justify-center shrink-0">
+                                        <svg viewBox="0 0 36 36" class="circular-chart absolute inset-0 w-full h-full drop-shadow">
+                                            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                            <path class="circle" id="donut-20k" stroke="#9333ea" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        </svg>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span id="donut-text-20k" class="text-xl md:text-2xl font-extrabold text-slate-800">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PM 130K -->
+                            <div class="bg-white border border-indigo-200 rounded-xl shadow-md flex flex-col p-5 md:p-6 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1" id="card-pm130k">
+                                <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] px-3 py-1 font-bold rounded-bl-lg uppercase shadow">Major PM</div>
+                                <h3 class="text-sm font-extrabold text-slate-700 mb-4 border-b-2 border-slate-100 pb-2">รอบ <span class="text-indigo-600 editable-cell px-1.5 py-0.5 rounded" onclick="editTargetPM('130k')" id="target-130k-display">130,000</span> Shots</h3>
+                                
+                                <div class="flex items-center justify-between gap-4 h-full">
+                                    <div class="flex flex-col justify-center">
+                                        <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">คงเหลือ (Remaining)</span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span id="remain-130k" class="font-black text-4xl lg:text-5xl leading-none tracking-tighter">0</span>
+                                        </div>
+                                        <div class="mt-3 text-center inline-block w-fit" id="status-badge-130k">-</div>
+                                    </div>
+                                    <div class="relative w-28 h-28 md:w-32 md:h-32 flex items-center justify-center shrink-0">
+                                        <svg viewBox="0 0 36 36" class="circular-chart absolute inset-0 w-full h-full drop-shadow">
+                                            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                            <path class="circle" id="donut-130k" stroke="#4f46e5" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        </svg>
+                                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span id="donut-text-130k" class="text-xl md:text-2xl font-extrabold text-slate-800">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-2" class="bg-white rounded-xl shadow-lg mb-6 border border-slate-200 overflow-hidden">
+            <div class="section-header text-white px-5 py-3 flex items-center justify-between cursor-pointer transition duration-300" onclick="toggleSection('sec2-content', 'sec2-icon')">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white text-primary rounded-full w-6 h-6 flex items-center justify-center font-black text-sm shadow-sm"><i class="fa-solid fa-table-list text-xs"></i></div>
+                    <h2 class="font-bold text-base uppercase tracking-wide">บันทึกการใช้งาน (Operation Log)</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-2 no-print" onclick="event.stopPropagation();">
+                        <button id="toggle-logs-btn" onclick="toggleShowAllLogs()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 hover:-translate-y-0.5">ดูทั้งหมด</button>
+                        <button onclick="addNewLogRow()" class="bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm hover:shadow-md flex items-center gap-1.5 hover:-translate-y-0.5"><i class="fa-solid fa-plus"></i> เพิ่มแถว</button>
+                    </div>
+                    <i id="sec2-icon" class="fa-solid fa-chevron-down text-sm opacity-80 border-l border-white/20 pl-4 transition-transform"></i>
+                </div>
+            </div>
+            
+            <div class="collapsible-content collapsed" id="sec2-content">
+                <div>
+                    <div class="overflow-x-auto bg-white scrollbar-thin pb-2 p-1">
+                        <table class="w-full text-center border-collapse text-xs md:text-sm min-w-[900px]">
+                            <thead class="bg-purple-50 text-purple-900 font-bold border-b-2 border-purple-200">
+                                <tr>
+                                    <th class="py-3 px-2 border-r border-purple-200 w-24">วันที่<br><span class="text-[9px] uppercase text-purple-600/70">(Date)</span></th>
+                                    <th class="py-3 px-3 border-r border-purple-200">หน้าปัด<br><span class="text-[9px] uppercase text-purple-600/70">(Counter)</span></th>
+                                    <th class="py-3 px-3 border-r border-purple-200">ผลิตได้<br><span class="text-[9px] uppercase text-purple-600/70">(Actual)</span></th>
+                                    
+                                    <th class="py-3 px-3 border-r border-purple-200 bg-purple-100/50">สะสม 20k<br><span class="text-[9px] uppercase text-purple-600/70">(Accum)</span></th>
+                                    <th class="py-3 px-3 border-r border-purple-200 bg-purple-100">เหลือ 20k<br><span class="text-[9px] uppercase text-purple-600/70">(Remain)</span></th>
+                                    
+                                    <th class="py-3 px-3 border-r border-purple-200 bg-indigo-50/50">สะสม 130k<br><span class="text-[9px] uppercase text-indigo-600/70">(Accum)</span></th>
+                                    <th class="py-3 px-3 border-r border-purple-200 bg-indigo-100/60">เหลือ <span id="th-130-label">130k</span><br><span class="text-[9px] uppercase text-indigo-600/70">(Remain)</span></th>
+                                    
+                                    <th class="py-3 px-3 border-r border-purple-200 w-24">ผู้บันทึก<br><span class="text-[9px] uppercase text-purple-600/70">(Oper)</span></th>
+                                    <th class="py-3 px-1 no-print w-12"><i class="fa-solid fa-gear"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-table-body" class="font-medium text-sm"></tbody>
+                        </table>
+                        
+                        <div id="log-footer-info" class="bg-slate-50 px-4 py-2.5 border-t border-slate-300 flex justify-between items-center text-[11px] text-slate-600 font-bold uppercase">
+                            <span id="showing-text"><i class="fa-solid fa-list-ol mr-1"></i> แสดง 15 รายการล่าสุด</span>
+                            <span class="text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md border border-purple-100 shadow-sm no-print"><i class="fa-solid fa-mouse-pointer mr-1"></i> คลิกเซลล์เพื่อแก้ไข</span>
+                        </div>
+                        <div id="empty-log-state" class="hidden text-center py-12 text-slate-400 bg-slate-50 border-t border-slate-200">
+                            <i class="fa-regular fa-folder-open text-5xl mb-4 opacity-50"></i><br>
+                            <span class="text-base font-bold">ไม่มีข้อมูลบันทึก</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-3" class="bg-white rounded-xl shadow-lg mb-6 border border-slate-200 overflow-hidden no-print">
+            <div class="section-header text-white px-5 py-3 flex items-center justify-between cursor-pointer transition duration-300" onclick="toggleSection('sec3-content', 'sec3-icon')">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white text-primary rounded-full w-6 h-6 flex items-center justify-center font-black text-sm shadow-sm"><i class="fa-solid fa-bell text-xs"></i></div>
+                    <h2 class="font-bold text-base uppercase tracking-wide">เกณฑ์แจ้งเตือน (Alert Flow)</h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] text-white/90 uppercase font-bold hidden sm:inline border border-white/30 px-2 py-0.5 rounded-full"><i class="fa-solid fa-pen mr-1"></i>แก้ไขได้</span>
+                    <i id="sec3-icon" class="fa-solid fa-chevron-down text-sm opacity-80 border-l border-white/20 pl-4 transition-transform"></i>
+                </div>
+            </div>
+            
+            <div class="collapsible-content collapsed" id="sec3-content">
+                <div>
+                    <div class="p-6 md:p-8 bg-slate-50/80 flex flex-col gap-10">
+                        
+                        <!-- 20K Thresholds -->
+                        <div>
+                            <div class="text-sm font-extrabold text-slate-800 mb-4 pb-2 border-b-2 border-purple-200 inline-block">เกณฑ์ <span class="text-purple-600">20,000</span> (Minor PM)</div>
+                            <div class="flex flex-nowrap w-full items-stretch justify-between gap-2 sm:gap-4 overflow-x-auto pb-4 snap-x">
+                                
+                                <!-- Safe -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col snap-center">
+                                    <div class="bg-green-500 text-white text-xs py-2 font-bold text-center uppercase tracking-wider flex items-center justify-center gap-1.5"><i class="fa-solid fa-shield-halved"></i> Safe</div>
+                                    <div class="p-4 text-center bg-green-50/30 flex-grow flex flex-col justify-center cursor-pointer hover:bg-green-50 transition" onclick="editThreshold('20k', 'safe')">
+                                        <span class="text-[10px] text-green-700 font-bold mb-1">น้อยกว่า</span>
+                                        <span id="th20-safe" class="text-2xl font-black text-green-700">10k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+
+                                <!-- Warn -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col snap-center">
+                                    <div class="bg-amber-400 text-white text-xs py-2 font-bold text-center uppercase tracking-wider flex items-center justify-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Warn</div>
+                                    <div class="p-4 text-center bg-amber-50/30 flex-grow flex flex-col justify-center cursor-pointer hover:bg-amber-50 transition" onclick="editThreshold('20k', 'warning')">
+                                        <span id="th20-safe2" class="text-sm font-bold text-amber-700">10k</span> 
+                                        <span class="text-[9px] text-amber-700 my-1 font-bold">ถึง</span>
+                                        <span id="th20-warn" class="text-xl font-black text-amber-700">14.9k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+
+                                <!-- Critical -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col snap-center">
+                                    <div class="bg-orange-500 text-white text-xs py-2 font-bold text-center uppercase tracking-wider flex items-center justify-center gap-1.5"><i class="fa-solid fa-fire"></i> Crit</div>
+                                    <div class="p-4 text-center bg-orange-50/30 flex-grow flex flex-col justify-center cursor-pointer hover:bg-orange-50 transition" onclick="editThreshold('20k', 'critical')">
+                                        <span id="th20-warn2" class="text-sm font-bold text-orange-700">15k</span> 
+                                        <span class="text-[9px] text-orange-700 my-1 font-bold">ถึง</span>
+                                        <span id="th20-crit" class="text-xl font-black text-orange-700">19.9k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+
+                                <!-- Due -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col snap-center">
+                                    <div class="bg-red-600 text-white text-xs py-2 font-bold text-center uppercase tracking-wider flex items-center justify-center gap-1.5"><i class="fa-solid fa-skull"></i> DUE</div>
+                                    <div class="p-4 text-center bg-red-50/30 flex-grow flex flex-col justify-center">
+                                        <span class="text-[10px] text-red-600 font-bold mb-1">&ge;</span>
+                                        <span id="th20-pm" class="text-2xl font-black text-red-700">20k</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 130K Thresholds -->
+                        <div>
+                            <div class="text-sm font-extrabold text-slate-800 mb-4 pb-2 border-b-2 border-indigo-200 inline-block">เกณฑ์ <span class="text-indigo-600">130,000</span> (Major PM)</div>
+                            <div class="flex flex-nowrap w-full items-stretch justify-between gap-2 sm:gap-4 overflow-x-auto pb-4 snap-x">
+                                <!-- Re-use styling logic as above for 130k but with JS populating text -->
+                                <!-- Safe -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition flex flex-col snap-center cursor-pointer hover:bg-green-50" onclick="editThreshold('130k', 'safe')">
+                                    <div class="bg-green-500 text-white text-xs py-2 font-bold text-center uppercase tracking-wider">Safe</div>
+                                    <div class="p-4 text-center bg-green-50/30 flex-grow flex flex-col justify-center">
+                                        <span class="text-[10px] text-green-700 font-bold mb-1">น้อยกว่า</span><span id="th130-safe" class="text-xl font-black text-green-700">100k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+                                <!-- Warn -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition flex flex-col snap-center cursor-pointer hover:bg-amber-50" onclick="editThreshold('130k', 'warning')">
+                                    <div class="bg-amber-400 text-white text-xs py-2 font-bold text-center uppercase tracking-wider">Warn</div>
+                                    <div class="p-4 text-center bg-amber-50/30 flex-grow flex flex-col justify-center">
+                                        <span id="th130-safe2" class="text-sm font-bold text-amber-700">100k</span><span class="text-[9px] text-amber-700 my-1 font-bold">ถึง</span><span id="th130-warn" class="text-xl font-black text-amber-700">119.9k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+                                <!-- Crit -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition flex flex-col snap-center cursor-pointer hover:bg-orange-50" onclick="editThreshold('130k', 'critical')">
+                                    <div class="bg-orange-500 text-white text-xs py-2 font-bold text-center uppercase tracking-wider">Crit</div>
+                                    <div class="p-4 text-center bg-orange-50/30 flex-grow flex flex-col justify-center">
+                                        <span id="th130-warn2" class="text-sm font-bold text-orange-700">120k</span><span class="text-[9px] text-orange-700 my-1 font-bold">ถึง</span><span id="th130-crit" class="text-xl font-black text-orange-700">129.9k</span>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0 flex items-center justify-center text-slate-300"><i class="fa-solid fa-arrow-right"></i></div>
+                                <!-- Due -->
+                                <div class="flex-shrink-0 w-36 sm:w-44 md:flex-1 bg-white border border-red-200 rounded-xl overflow-hidden shadow-sm transition flex flex-col snap-center">
+                                    <div class="bg-red-600 text-white text-xs py-2 font-bold text-center uppercase tracking-wider">DUE</div>
+                                    <div class="p-4 text-center bg-red-50/30 flex-grow flex flex-col justify-center">
+                                        <span class="text-[10px] text-red-600 font-bold mb-1">&ge;</span><span id="th130-pm" class="text-xl font-black text-red-700">130k</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-4" class="bg-white rounded-xl shadow-lg border border-slate-200 mb-6 overflow-hidden">
+            <div class="section-header text-white px-5 py-3 flex items-center justify-between cursor-pointer transition duration-300" onclick="toggleSection('sec4-content', 'sec4-icon')">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white text-primary rounded-full w-6 h-6 flex items-center justify-center font-black text-sm shadow-sm"><i class="fa-solid fa-wrench text-xs"></i></div>
+                    <h2 class="font-bold text-base uppercase tracking-wide">รายการอะไหล่ (Maintenance)</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-2 no-print" onclick="event.stopPropagation();">
+                        <button onclick="openMaintenanceModal()" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition flex items-center gap-1.5 hover:-translate-y-0.5"><i class="fa-solid fa-plus"></i> เพิ่มรายการ</button>
+                    </div>
+                    <i id="sec4-icon" class="fa-solid fa-chevron-down text-sm opacity-80 border-l border-white/20 pl-4 transition-transform"></i>
+                </div>
+            </div>
+            
+            <div class="collapsible-content collapsed" id="sec4-content">
+                <div>
+                    <div class="overflow-x-auto scrollbar-thin pb-2 bg-white p-1">
+                        <table class="w-full text-sm text-left border-collapse min-w-[600px]">
+                            <thead class="bg-purple-50 text-purple-900 font-bold border-b-2 border-purple-200">
+                                <tr>
+                                    <th class="py-3 px-4 w-20 text-center border-r border-purple-200">ลำดับ</th>
+                                    <th class="py-3 px-4 w-32 border-r border-purple-200">วันที่ซ่อมบำรุง</th>
+                                    <th class="py-3 px-5 border-r border-purple-200 w-1/3">รายการอะไหล่ที่เปลี่ยน</th>
+                                    <th class="py-3 px-4 w-24 text-center border-r border-purple-200">จำนวน</th>
+                                    <th class="py-3 px-5 border-r border-purple-200 w-1/2">หมายเหตุ</th>
+                                    <th class="py-3 px-3 w-20 text-center no-print">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="maintenance-table-body" class="font-medium bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Trend Chart -->
+    <div id="trend-modal" class="fixed inset-0 bg-slate-900/90 z-50 hidden flex items-center justify-center backdrop-blur-sm px-2 py-4 no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all border-2 border-primary" id="trend-modal-content">
+            <div class="bg-primary text-white px-5 py-4 flex justify-between items-center shadow z-10">
+                <h3 class="font-bold text-lg uppercase tracking-wide"><i class="fa-solid fa-chart-line mr-2"></i> Trend</h3>
+                <button onclick="closeModal('trend-modal')" class="text-white hover:text-red-300 bg-white/10 rounded-full w-8 h-8 flex justify-center items-center transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-5 flex-grow relative bg-slate-50">
+                <div class="absolute inset-5 bg-white border border-slate-200 rounded-xl p-4 flex flex-col"><h4 id="trend-chart-title" class="text-center font-bold text-slate-700 mb-2"></h4><div class="flex-grow relative"><canvas id="trendChart"></canvas></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add New Mold (Icon Selection instead of Image) -->
+    <div id="add-mold-modal" class="fixed inset-0 bg-slate-900/90 z-50 hidden flex items-center justify-center backdrop-blur-sm px-4 py-4 no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all border-2 border-purple-600" id="add-mold-modal-content">
+            <div class="bg-purple-600 text-white px-5 py-4 flex justify-between items-center shadow z-10">
+                <h3 class="font-bold text-base uppercase tracking-wide"><i class="fa-solid fa-folder-plus mr-2"></i> เพิ่มข้อมูลแม่พิมพ์</h3>
+                <button onclick="closeModal('add-mold-modal')" class="text-white hover:text-red-200 bg-white/10 rounded-full w-8 h-8 flex justify-center items-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 flex-grow bg-slate-50 space-y-5 overflow-y-auto">
+                <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">ชื่อแม่พิมพ์ / รหัส *</label><input type="text" id="new-mold-name" class="w-full border border-purple-200 rounded-lg p-2.5 text-sm font-medium focus:border-purple-500 focus:outline-none shadow-sm"></div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-2">ขนาดแม่พิมพ์ *</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer bg-white border border-slate-200 px-4 py-2.5 rounded-lg shadow-sm hover:bg-purple-50"><input type="radio" name="new-mold-size" value="100" checked class="accent-purple-600 w-4 h-4"> Size 100</label>
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer bg-white border border-slate-200 px-4 py-2.5 rounded-lg shadow-sm hover:bg-purple-50"><input type="radio" name="new-mold-size" value="1000" class="accent-purple-600 w-4 h-4"> Size 1000</label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5">เลือกสัญลักษณ์ (Icon)</label>
+                    <div class="grid grid-cols-4 gap-2 bg-white border border-slate-200 p-3 rounded-lg">
+                        <!-- Radio buttons wrapped in labels to look like selectable icons -->
+                        <label class="cursor-pointer text-center p-2 rounded hover:bg-purple-100 transition"><input type="radio" name="new-mold-icon" value="fa-cube" checked class="hidden peer"><div class="peer-checked:text-purple-600 peer-checked:scale-125 transition"><i class="fa-solid fa-cube text-2xl"></i></div></label>
+                        <label class="cursor-pointer text-center p-2 rounded hover:bg-purple-100 transition"><input type="radio" name="new-mold-icon" value="fa-industry" class="hidden peer"><div class="peer-checked:text-purple-600 peer-checked:scale-125 transition"><i class="fa-solid fa-industry text-2xl"></i></div></label>
+                        <label class="cursor-pointer text-center p-2 rounded hover:bg-purple-100 transition"><input type="radio" name="new-mold-icon" value="fa-microchip" class="hidden peer"><div class="peer-checked:text-purple-600 peer-checked:scale-125 transition"><i class="fa-solid fa-microchip text-2xl"></i></div></label>
+                        <label class="cursor-pointer text-center p-2 rounded hover:bg-purple-100 transition"><input type="radio" name="new-mold-icon" value="fa-gear" class="hidden peer"><div class="peer-checked:text-purple-600 peer-checked:scale-125 transition"><i class="fa-solid fa-gear text-2xl"></i></div></label>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white px-5 py-4 border-t border-slate-200 flex justify-end gap-3 shadow-inner">
+                <button onclick="closeModal('add-mold-modal')" class="px-5 py-2 border border-slate-300 rounded-lg text-slate-600 font-bold hover:bg-slate-100">ยกเลิก</button>
+                <button onclick="saveNewMold()" id="btn-save-add" class="px-6 py-2 bg-purple-600 border border-purple-700 rounded-lg text-white font-bold hover:bg-purple-700 shadow-sm"><i class="fa-solid fa-save mr-1"></i> บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKfAbMb4WDZJshUK-qtLhzcdtMQwABHF7cVf_f0oI2F0jmhPEDFLIfIu1CxWAhRKEPHA/exec"; 
+        
+        const state = {
+            molds: [], currentMoldId: null, isLoggedIn: false,
+            filters: { year: new Date().getFullYear().toString(), month: 'all', exactDate: '', size: 'all' },
+            isShowingAllLogs: false, chartInstance: null, alertAcknowledged: false,
+            syncTimer: null
+        };
+
+        // On Load Logic
+        window.onload = function() {
+            // Check session
+            if(sessionStorage.getItem('pm_logged_in') === 'true') {
+                state.isLoggedIn = true;
+                hideLogin();
+                initApp();
+            }
+            updateDateTime(); setInterval(updateDateTime, 1000);
+        };
+
+        // --- AUTHENTICATION ---
+        function handleLogin() {
+            const id = document.getElementById('login-id').value;
+            const pass = document.getElementById('login-pass').value;
+            const status = document.getElementById('login-status');
+            
+            if (id === 'pemc' && pass === 'mc001') {
+                status.className = "mt-5 text-sm font-bold text-center h-5 text-green-400";
+                status.innerHTML = '<i class="fa-solid fa-circle-check"></i> เข้าสู่ระบบสำเร็จ...';
+                sessionStorage.setItem('pm_logged_in', 'true');
+                state.isLoggedIn = true;
+                setTimeout(() => { hideLogin(); initApp(); }, 800);
+            } else {
+                status.className = "mt-5 text-sm font-bold text-center h-5 text-red-400 animate-bounce";
+                status.innerText = 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง!';
+                document.getElementById('login-pass').value = '';
+            }
+        }
+        
+        function handleLogout() {
+            Swal.fire({
+                title: 'ออกจากระบบ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'ออกจากระบบ'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    sessionStorage.removeItem('pm_logged_in');
+                    window.location.reload();
+                }
+            });
+        }
+
+        function hideLogin() {
+            const overlay = document.getElementById('login-overlay');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => { overlay.style.display = 'none'; }, 500);
+        }
+
+        function initApp() {
+            document.getElementById('main-content').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('main-content').classList.remove('opacity-0'); }, 50);
+            setupYearFilter(); setupFilters();
+            fetchDataFromGAS();
+        }
+
+        // --- DATA FETCHING (FAST REAL-TIME) ---
+        async function fetchDataFromGAS() {
+            updateSyncStatus('กำลังดึงข้อมูลล่าสุด...', 'text-warning', true);
+            try {
+                const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`);
+                const result = await response.json();
+                
+                if (result.success && result.molds && result.molds.length > 0) {
+                    state.molds = result.molds;
+                    if(!state.molds.find(m => m.id == state.currentMoldId)) {
+                        state.currentMoldId = state.molds[0].id; 
+                    }
+                } else {
+                    state.molds = []; // Empty state
+                }
+                updateSyncStatus('เชื่อมต่อและอัปเดตข้อมูลแล้ว', 'text-safe');
+                document.getElementById('year-filter').value = state.filters.year; document.getElementById('size-filter').value = state.filters.size;
+                renderMoldSelect();
+            } catch (error) {
+                updateSyncStatus('ออฟไลน์ - ไม่สามารถดึงข้อมูลได้', 'text-danger');
+                Swal.fire('เชื่อมต่อล้มเหลว', 'โปรดตรวจสอบอินเทอร์เน็ตหรือ URL ของ Apps Script', 'error');
+            }
+        }
+
+        function updateSyncStatus(msg, colorClass, spin = false) {
+            const icon = document.getElementById('sync-icon');
+            const status = document.getElementById('system-status');
+            status.innerText = msg;
+            icon.className = `fa-solid ${spin ? 'fa-arrows-rotate fa-spin' : 'fa-circle'} ${colorClass} text-[8px]`;
+        }
+        
+        // --- AUTO SYNC ---
+        function triggerSync() {
+            const mold = getCurrentMold(); if(!mold) return;
+            updateSyncStatus('กำลังบันทึกข้อมูลพื้นหลัง...', 'text-warning', true);
+            clearTimeout(state.syncTimer);
+            
+            // Debounce for 1 second to avoid spamming
+            state.syncTimer = setTimeout(async () => {
+                try {
+                    const params = new URLSearchParams();
+                    params.append('action', 'syncMold');
+                    params.append('payload', JSON.stringify(mold));
+                    
+                    const response = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: params });
+                    const result = await response.json();
+                    
+                    if(result.success) updateSyncStatus('ข้อมูลซิงค์ล่าสุดเมื่อสักครู่', 'text-safe');
+                    else throw new Error(result.message);
+                } catch(err) {
+                    updateSyncStatus('ซิงค์ล้มเหลว ระบบจะพยายามใหม่เมื่อมีการแก้ข้อมูล', 'text-danger');
+                }
+            }, 1000);
+        }
+
+        function updateDateTime() {
+            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit', second:'2-digit' };
+            document.getElementById('current-datetime').innerText = new Date().toLocaleDateString('th-TH', options).toUpperCase();
+        }
+
+        function getCurrentMold() { return state.molds.find(m => m.id == state.currentMoldId); }
+
+        function renderMoldSelect() {
+            const select = document.getElementById('mold-name'); select.innerHTML = '';
+            const filteredMolds = state.filters.size === 'all' ? state.molds : state.molds.filter(m => m.size === state.filters.size);
+            
+            filteredMolds.forEach(mold => { const opt = document.createElement('option'); opt.value = mold.id; opt.text = mold.name; select.appendChild(opt); });
+
+            if (filteredMolds.length > 0) {
+                const stillExists = filteredMolds.find(m => m.id == state.currentMoldId);
+                if (!stillExists) state.currentMoldId = filteredMolds[0].id;
+                select.value = state.currentMoldId; select.disabled = false;
+            } else {
+                state.currentMoldId = null; const opt = document.createElement('option'); opt.text = "ไม่มีแม่พิมพ์ในหมวดนี้"; select.appendChild(opt); select.disabled = true;
+            }
+            state.alertAcknowledged = false; 
+            updateMoldDisplay();
+        }
+
+        function handleSizeFilterChange() { state.filters.size = document.getElementById('size-filter').value; renderMoldSelect(); }
+        function handleMoldChange() { state.alertAcknowledged = false; state.currentMoldId = parseInt(document.getElementById('mold-name').value); updateMoldDisplay(); }
+
+        // --- RENDER CORE ---
+        function updateMoldDisplay() {
+            const mold = getCurrentMold();
+            if (mold) {
+                document.getElementById('current-mold-icon').className = `fa-solid ${mold.icon || 'fa-cube'} text-6xl text-purple-400 drop-shadow-md transition-transform hover:scale-110 duration-300`;
+                document.getElementById('current-mold-size').innerText = 'Size ' + mold.size;
+                document.getElementById('target-130k-display').innerText = formatNumber(mold.targetPM130k);
+                document.getElementById('th-130-label').innerText = formatNumber(mold.targetPM130k);
+            }
+            recalculateAll(); renderMaintenanceTable();
+        }
+
+        function recalculateAll() {
+            const mold = getCurrentMold();
+            const tbody = document.getElementById('log-table-body');
+            document.getElementById('pm-alert-popup').classList.add('hidden');
+            
+            if (!mold) { tbody.innerHTML = ''; return; }
+
+            const sortedLogs = [...mold.logs].sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+            let currentRun20k = 0; let currentRun130k = 0; let lastCounter = 0;
+            
+            sortedLogs.forEach((log, index) => {
+                let prevCounter = index === 0 ? 0 : sortedLogs[index-1].counter;
+                let actual = log.counter - prevCounter;
+                if (actual < 0) actual = 0;
+                currentRun20k += actual; currentRun130k += actual;
+                log._actual = actual; log._accum20k = currentRun20k; log._accum130k = currentRun130k;
+                lastCounter = log.counter;
+                if (log.pm20k) currentRun20k = 0; if (log.pm130k) currentRun130k = 0;
+            });
+
+            document.getElementById('mold-current').innerText = formatNumber(lastCounter);
+
+            let filteredLogs = sortedLogs;
+            if (state.filters.exactDate) filteredLogs = sortedLogs.filter(l => l.date === state.filters.exactDate);
+            else {
+                 if (state.filters.year) filteredLogs = filteredLogs.filter(l => l.date.startsWith(state.filters.year));
+                 if (state.filters.month !== 'all') filteredLogs = filteredLogs.filter(l => l.date.substring(5, 7) === state.filters.month);
+            }
+
+            let displayLogs = filteredLogs;
+            if (!state.isShowingAllLogs && filteredLogs.length > 15) {
+                displayLogs = filteredLogs.slice(-15);
+                document.getElementById('showing-text').innerHTML = `<i class="fa-solid fa-list-ol mr-1"></i> แสดง 15 ล่าสุด (จาก ${filteredLogs.length})`;
+            } else {
+                document.getElementById('showing-text').innerHTML = `<i class="fa-solid fa-list-ol mr-1"></i> แสดงทั้งหมด ${filteredLogs.length} รายการ`;
+            }
+
+            tbody.innerHTML = '';
+            if (filteredLogs.length === 0) {
+                document.getElementById('empty-log-state').style.display = 'block';
+                document.getElementById('log-table-body').parentElement.style.display = 'none';
+            } else {
+                document.getElementById('empty-log-state').style.display = 'none';
+                document.getElementById('log-table-body').parentElement.style.display = 'table';
+                
+                displayLogs.forEach((log) => {
+                    let remain20k = mold.targetPM20k - log._accum20k;
+                    let remain130k = mold.targetPM130k - log._accum130k;
+                    let stat20 = getStatusConfig(log._accum20k, mold.targetPM20k, mold.thresholds20k);
+                    let stat130 = getStatusConfig(log._accum130k, mold.targetPM130k, mold.thresholds130k);
+
+                    tbody.innerHTML += `
+                        <tr class="border-b border-purple-100 hover:bg-purple-50 transition-colors bg-white print-avoid-break">
+                            <td class="py-2.5 px-2 editable-cell text-slate-700 border-r border-purple-100" onclick="inlineEdit(${log.id}, 'date', 'date')">${formatDate(log.date)}</td>
+                            <td class="py-2.5 px-3 editable-cell font-bold text-primary border-r border-purple-100 text-right" onclick="inlineEditCounter(${log.id})">${formatNumber(log.counter)}</td>
+                            <td class="py-2.5 px-3 font-bold text-slate-700 bg-slate-50 border-r border-purple-100 text-right">${formatNumber(log._actual)}</td>
+                            <td class="py-2.5 px-3 font-bold text-purple-700 bg-purple-50/30 border-r border-purple-100 text-right">${formatNumber(log._accum20k)}</td>
+                            <td class="py-2.5 px-3 border-r border-purple-100 ${stat20.bg}">
+                                <div class="flex items-center justify-between gap-1">
+                                    <span class="font-bold ${stat20.color} text-right flex-1">${formatNumber(remain20k)}</span>
+                                    <button onclick="togglePM(${log.id}, '20k')" class="no-print ${log.pm20k ? 'bg-green-500 hover:bg-green-600' : 'bg-slate-400 hover:bg-purple-500'} text-white px-2 py-1 rounded text-[10px] font-bold shadow-sm transition-colors min-w-[45px]"><i class="fa-solid ${log.pm20k ? 'fa-check' : 'fa-wrench'}"></i> PM</button>
+                                </div>
+                            </td>
+                            <td class="py-2.5 px-3 font-bold text-indigo-700 bg-indigo-50/30 border-r border-purple-100 text-right">${formatNumber(log._accum130k)}</td>
+                            <td class="py-2.5 px-3 border-r border-purple-100 ${stat130.bg}">
+                                <div class="flex items-center justify-between gap-1">
+                                    <span class="font-bold ${stat130.color} text-right flex-1">${formatNumber(remain130k)}</span>
+                                    <button onclick="togglePM(${log.id}, '130k')" class="no-print ${log.pm130k ? 'bg-green-500 hover:bg-green-600' : 'bg-slate-400 hover:bg-indigo-500'} text-white px-2 py-1 rounded text-[10px] font-bold shadow-sm transition-colors min-w-[45px]"><i class="fa-solid ${log.pm130k ? 'fa-check' : 'fa-wrench'}"></i> PM</button>
+                                </div>
+                            </td>
+                            <td class="py-2.5 px-3 editable-cell text-slate-700 border-r border-purple-100" onclick="inlineEdit(${log.id}, 'operator', 'text')">${log.operator}</td>
+                            <td class="py-2.5 px-1 no-print text-center"><button onclick="deleteLog(${log.id})" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash-can"></i></button></td>
+                        </tr>
+                    `;
+                });
+            }
+
+            updateDonut('20k', currentRun20k, mold.targetPM20k, mold.thresholds20k);
+            updateDonut('130k', currentRun130k, mold.targetPM130k, mold.thresholds130k);
+            updateThresholdUI(mold);
+
+            if (!state.alertAcknowledged) {
+                let stat20 = getStatusConfig(currentRun20k, mold.targetPM20k, mold.thresholds20k);
+                let stat130 = getStatusConfig(currentRun130k, mold.targetPM130k, mold.thresholds130k);
+                if (stat20.isDue || stat130.isDue) {
+                    const popup = document.getElementById('pm-alert-popup');
+                    popup.classList.remove('hidden');
+                    setTimeout(() => popup.classList.remove('translate-y-20', 'opacity-0'), 100);
+                }
+            }
+
+            if(!document.getElementById('trend-modal').classList.contains('hidden')) renderChart();
+        }
+
+        // --- UTILS & HELPERS ---
+        function getStatusConfig(accum, target, thresholds) {
+            if (accum < thresholds.safe) return { label: 'ปลอดภัย (Safe)', color: 'text-safe', bg: 'bg-green-50/20', isDue: false };
+            if (accum < thresholds.warning) return { label: 'เตือน (Warning)', color: 'text-warning', bg: 'bg-amber-50/30', isDue: false };
+            if (accum < thresholds.critical) return { label: 'เสี่ยงสูง (Critical)', color: 'text-critical', bg: 'bg-orange-50/40', isDue: false };
+            return { label: 'ถึงกำหนด (DUE)', color: 'text-due', bg: 'bg-red-100', isDue: true };
+        }
+
+        function updateDonut(type, accum, target, thresholds) {
+            let remain = target - accum; 
+            document.getElementById(`remain-${type}`).innerText = formatNumber(remain);
+            
+            let percent = target > 0 ? (accum / target) * 100 : 0;
+            let displayPercent = Math.min(percent, 100); 
+            
+            let elText = document.getElementById(`donut-text-${type}`);
+            elText.innerText = `${percent.toFixed(1)}%`;
+            elText.className = percent >= 100 ? "text-lg md:text-xl font-extrabold text-red-600 animate-pulse" : "text-lg md:text-xl font-extrabold text-slate-800";
+            
+            const path = document.getElementById(`donut-${type}`);
+            path.setAttribute('stroke-dasharray', `${displayPercent}, 100`);
+            
+            let stat = getStatusConfig(accum, target, thresholds);
+            
+            const badge = document.getElementById(`status-badge-${type}`);
+            badge.innerText = stat.label;
+            badge.className = `px-3 py-1 rounded-full text-[11px] font-bold text-white shadow-sm ${stat.isDue ? 'bg-danger animate-pulse' : (stat.label.includes('Safe') ? 'bg-safe' : (stat.label.includes('Warn') ? 'bg-warning' : 'bg-critical'))}`;
+            
+            const card = document.getElementById(`card-pm${type}`);
+            card.className = `bg-white border rounded-xl shadow-md flex flex-col p-5 md:p-6 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${stat.isDue ? 'border-red-500 shadow-red-200 shadow-xl border-2' : (type==='20k' ? 'border-purple-200' : 'border-indigo-200')}`;
+            
+            if(stat.isDue) path.setAttribute('stroke', '#dc2626');
+            else if(stat.label.includes('Crit')) path.setAttribute('stroke', '#ea580c');
+            else if(stat.label.includes('Warn')) path.setAttribute('stroke', '#f59e0b');
+            else path.setAttribute('stroke', type === '20k' ? '#9333ea' : '#4f46e5');
+        }
+
+        function dismissAlert() {
+            state.alertAcknowledged = true;
+            const popup = document.getElementById('pm-alert-popup');
+            popup.classList.add('translate-y-20', 'opacity-0');
+            setTimeout(() => popup.classList.add('hidden'), 500);
+        }
+
+        // --- LOG INTERACTIONS ---
+        function togglePM(logId, type) {
+            const mold = getCurrentMold(); if(!mold) return;
+            const log = mold.logs.find(l => l.id === logId); if(!log) return;
+            if(type === '20k') log.pm20k = !log.pm20k;
+            if(type === '130k') log.pm130k = !log.pm130k;
+            recalculateAll(); triggerSync();
+        }
+
+        async function inlineEditCounter(logId) {
+            const mold = getCurrentMold(); if(!mold) return;
+            const sorted = [...mold.logs].sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+            const index = sorted.findIndex(l => l.id === logId); if(index === -1) return;
+            const log = sorted[index];
+            const min = index > 0 ? sorted[index-1].counter : 0;
+            const max = index < sorted.length - 1 ? sorted[index+1].counter : 999999999;
+
+            const { value: val } = await Swal.fire({
+                title: `แก้ไขหน้าปัด`, html: `<p class="text-xs mb-2">ต้องอยู่ระหว่าง <b>${formatNumber(min)}</b> ถึง <b>${max === 999999999 ? 'ไม่จำกัด' : formatNumber(max)}</b></p>`,
+                input: 'number', inputValue: log.counter, showCancelButton: true, confirmButtonColor: '#7e22ce',
+                inputValidator: (v) => {
+                    const n = parseInt(v);
+                    if (!v) return 'กรุณากรอกตัวเลข';
+                    if (n < min) return `ต้องไม่น้อยกว่า ${formatNumber(min)}`;
+                    if (n > max) return `ต้องไม่เกิน ${formatNumber(max)}`;
+                }
+            });
+            if (val) { log.counter = parseInt(val); recalculateAll(); triggerSync(); }
+        }
+
+        async function inlineEdit(logId, field, inputType) {
+            const mold = getCurrentMold(); if(!mold) return;
+            const log = mold.logs.find(l => l.id === logId); if(!log) return;
+            const { value: val } = await Swal.fire({
+                title: `แก้ไข`, input: inputType, inputValue: log[field], showCancelButton: true, confirmButtonColor: '#7e22ce',
+                inputValidator: (v) => { if(!v) return 'กรุณากรอกข้อมูล'; }
+            });
+            if (val) { log[field] = val; recalculateAll(); triggerSync(); }
+        }
+
+        async function addNewLogRow() {
+            const mold = getCurrentMold(); if(!mold) return Swal.fire('Error', 'กรุณาเลือกแม่พิมพ์', 'error');
+
+            const sorted = [...mold.logs].sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+            let lastDate = new Date().toISOString().split('T')[0];
+            let minCounter = 0;
+            
+            if(sorted.length > 0) {
+                const last = sorted[sorted.length - 1];
+                let d = new Date(last.date); d.setDate(d.getDate() + 1);
+                lastDate = d.toISOString().split('T')[0];
+                minCounter = last.counter;
+            }
+
+            const { value: formValues } = await Swal.fire({
+                title: 'เพิ่มบันทึกใหม่',
+                html: `<div class="space-y-3 mt-2 text-left">
+                        <div><label class="text-xs font-bold text-slate-600">วันที่</label><input id="sw-date" type="date" class="w-full border border-slate-300 rounded-md p-2 mt-1" value="${lastDate}"></div>
+                        <div><label class="text-xs font-bold text-slate-600">หน้าปัด (ต้อง &ge; ${formatNumber(minCounter)})</label><input id="sw-counter" type="number" class="w-full border border-slate-300 rounded-md p-2 mt-1" value="${minCounter}"></div>
+                        <div><label class="text-xs font-bold text-slate-600">ผู้บันทึก</label><input id="sw-oper" class="w-full border border-slate-300 rounded-md p-2 mt-1" value="PE Team"></div>
+                    </div>`,
+                focusConfirm: false, showCancelButton: true, confirmButtonColor: '#7e22ce', confirmButtonText: 'บันทึก',
+                preConfirm: () => {
+                    const c = parseInt(document.getElementById('sw-counter').value);
+                    if(c < minCounter) { Swal.showValidationMessage(`เลขหน้าปัดต้องไม่น้อยกว่า ${formatNumber(minCounter)}`); return false; }
+                    return { date: document.getElementById('sw-date').value, counter: c, oper: document.getElementById('sw-oper').value };
+                }
+            });
+
+            if (formValues) {
+                mold.logs.push({ id: Date.now(), date: formValues.date, counter: formValues.counter, pm20k: false, pm130k: false, operator: formValues.oper });
+                const [y, m] = formValues.date.split('-');
+                let yearExists = Array.from(document.getElementById('year-filter').options).some(o => o.value === y);
+                if(!yearExists) { const opt = document.createElement('option'); opt.value = y; opt.text = y; document.getElementById('year-filter').appendChild(opt); }
+                document.getElementById('year-filter').value = y; document.getElementById('month-filter').value = m;
+                state.filters.year = y; state.filters.month = m; state.filters.exactDate = '';
+                
+                recalculateAll(); triggerSync();
+                Swal.fire({ title: 'เพิ่มสำเร็จ', icon: 'success', timer: 1000, showConfirmButton: false, toast: true, position: 'top-end' });
+            }
+        }
+        
+        function deleteLog(id) {
+            const mold = getCurrentMold(); if(!mold) return;
+            Swal.fire({
+                title: 'ลบข้อมูล?', text: "ข้อมูลหลังจากการลบจะถูกคำนวณใหม่", icon: 'warning',
+                showCancelButton: true, confirmButtonColor: '#dc2626', confirmButtonText: 'ลบ'
+            }).then((res) => {
+                if (res.isConfirmed) { mold.logs = mold.logs.filter(l => l.id !== id); recalculateAll(); triggerSync(); }
+            });
+        }
+
+        // --- MAINTENANCE ---
+        function renderMaintenanceTable() {
+            const mold = getCurrentMold(); const tbody = document.getElementById('maintenance-table-body'); tbody.innerHTML = '';
+            if(!mold) return;
+            mold.maintenance.forEach((item, index) => {
+                const displayDate = item.date ? formatDate(item.date) : '-';
+                tbody.innerHTML += `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-b border-slate-200 hover:bg-purple-50 transition print-avoid-break">
+                    <td class="py-2.5 px-4 border-r border-slate-200 text-center text-slate-500 font-semibold">${index + 1}</td>
+                    <td class="py-2.5 px-4 border-r border-slate-200 text-center">${displayDate}</td>
+                    <td class="py-2.5 px-5 border-r border-slate-200 font-bold">${item.part}</td>
+                    <td class="py-2.5 px-4 border-r border-slate-200 text-center font-bold">${item.qty}</td>
+                    <td class="py-2.5 px-5 border-r border-slate-200 text-slate-600">${item.note}</td>
+                    <td class="py-2.5 px-3 text-center no-print flex justify-center gap-2">
+                        <button onclick="editMaintenance(${item.id})" class="text-slate-400 hover:text-purple-600 transition"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteMaintenance(${item.id})" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            });
+        }
+        
+        async function openMaintenanceModal() {
+            const mold = getCurrentMold(); if(!mold) return;
+            const today = new Date().toISOString().split('T')[0];
+            const { value: vals } = await Swal.fire({
+                title: 'เพิ่มอะไหล่', html: `<input id="i0" type="date" class="swal2-input" value="${today}"><input id="i1" class="swal2-input" placeholder="ชื่ออะไหล่"><input id="i2" class="swal2-input" value="1"><input id="i3" class="swal2-input" placeholder="หมายเหตุ">`,
+                preConfirm: () => [document.getElementById('i0').value, document.getElementById('i1').value, document.getElementById('i2').value, document.getElementById('i3').value], showCancelButton: true, confirmButtonColor: '#7e22ce'
+            });
+            if (vals && vals[1]) { mold.maintenance.push({ id: Date.now(), date: vals[0], part: vals[1], qty: vals[2], note: vals[3] }); renderMaintenanceTable(); triggerSync(); }
+        }
+
+        async function editMaintenance(id) {
+            const mold = getCurrentMold(); if(!mold) return;
+            const item = mold.maintenance.find(i => i.id === id); if(!item) return;
+            const { value: vals } = await Swal.fire({
+                title: 'แก้ไขอะไหล่',
+                html: `<input id="i0" type="date" class="swal2-input" value="${item.date || ''}"><input id="i1" class="swal2-input" placeholder="ชื่อ" value="${item.part}"><input id="i2" class="swal2-input" placeholder="จำนวน" value="${item.qty}"><input id="i3" class="swal2-input" placeholder="หมายเหตุ" value="${item.note}">`,
+                preConfirm: () => [document.getElementById('i0').value, document.getElementById('i1').value, document.getElementById('i2').value, document.getElementById('i3').value], showCancelButton: true, confirmButtonColor: '#7e22ce'
+            });
+            if (vals && vals[1]) {
+                item.date = vals[0]; item.part = vals[1]; item.qty = vals[2]; item.note = vals[3];
+                renderMaintenanceTable(); triggerSync();
+            }
+        }
+
+        function deleteMaintenance(id) {
+            const mold = getCurrentMold(); if(!mold) return;
+            mold.maintenance = mold.maintenance.filter(i => i.id !== id); renderMaintenanceTable(); triggerSync();
+        }
+
+        // --- THRESHOLDS ---
+        function updateThresholdUI(mold) {
+            document.getElementById('th20-safe').innerText = formatNumber(mold.thresholds20k.safe);
+            document.getElementById('th20-safe2').innerText = formatNumber(mold.thresholds20k.safe);
+            document.getElementById('th20-warn').innerText = formatNumber(mold.thresholds20k.warning - 1);
+            document.getElementById('th20-warn2').innerText = formatNumber(mold.thresholds20k.warning);
+            document.getElementById('th20-crit').innerText = formatNumber(mold.thresholds20k.critical - 1);
+            document.getElementById('th20-pm').innerText = formatNumber(mold.thresholds20k.critical); 
+            
+            document.getElementById('th130-safe').innerText = formatNumber(mold.thresholds130k.safe);
+            document.getElementById('th130-safe2').innerText = formatNumber(mold.thresholds130k.safe);
+            document.getElementById('th130-warn').innerText = formatNumber(mold.thresholds130k.warning - 1);
+            document.getElementById('th130-warn2').innerText = formatNumber(mold.thresholds130k.warning);
+            document.getElementById('th130-crit').innerText = formatNumber(mold.thresholds130k.critical - 1);
+            document.getElementById('th130-pm').innerText = formatNumber(mold.thresholds130k.critical); 
+        }
+
+        function editThreshold(type, level) {
+            const mold = getCurrentMold(); if(!mold) return;
+            let th = type === '20k' ? mold.thresholds20k : mold.thresholds130k;
+            let val = th[level];
+            if(level === 'warning' || level === 'critical') val -= 1; 
+
+            Swal.fire({
+                title: `แก้ไขเกณฑ์ ${level}`, input: 'number', inputValue: val, showCancelButton: true, confirmButtonColor: '#7e22ce'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    const num = parseInt(res.value);
+                    if(level === 'safe') th.safe = num;
+                    if(level === 'warning') th.warning = num + 1;
+                    if(level === 'critical') th.critical = num + 1;
+                    recalculateAll(); triggerSync();
+                }
+            });
+        }
+        
+        async function editTargetPM(type) {
+            const mold = getCurrentMold(); if(!mold) return;
+            const current = type === '20k' ? mold.targetPM20k : mold.targetPM130k;
+            const { value: val } = await Swal.fire({ title: `เป้าหมาย ${type}`, input: 'number', inputValue: current, showCancelButton: true, confirmButtonColor: '#7e22ce' });
+            if(val) {
+                if(type === '20k') { mold.targetPM20k = parseInt(val); mold.thresholds20k.critical = parseInt(val); }
+                if(type === '130k') { mold.targetPM130k = parseInt(val); mold.thresholds130k.critical = parseInt(val); }
+                recalculateAll(); triggerSync();
+            }
+        }
+
+        // --- FILTERS & MODALS & OTHERS ---
+        function toggleShowAllLogs() { state.isShowingAllLogs = !state.isShowingAllLogs; document.getElementById('toggle-logs-btn').innerText = state.isShowingAllLogs ? 'ย่อตาราง' : 'ดูทั้งหมด'; recalculateAll(); }
+        function toggleSection(contentId, iconId) {
+            const content = document.getElementById(contentId); const icon = document.getElementById(iconId);
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('fa-chevron-up'); icon.classList.toggle('fa-chevron-down');
+        }
+        
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); setTimeout(() => document.getElementById(`${id}-content`).classList.remove('scale-95', 'opacity-0'), 10); }
+        function closeModal(id) { document.getElementById(`${id}-content`).classList.add('scale-95', 'opacity-0'); setTimeout(() => document.getElementById(id).classList.add('hidden'), 200); }
+
+        function setupYearFilter() { const sel = document.getElementById('year-filter'); sel.innerHTML = ''; for(let y = 2026; y <= 2035; y++) sel.innerHTML += `<option value="${y}">${y}</option>`; }
+        function setupFilters() {
+            ['year', 'month'].forEach(f => document.getElementById(`${f}-filter`).addEventListener('change', (e) => {
+                state.filters[f] = e.target.value; state.filters.exactDate = ''; document.getElementById('date-filter').value = ''; recalculateAll();
+            }));
+            document.getElementById('date-filter').addEventListener('change', (e) => {
+                const val = e.target.value; state.filters.exactDate = val;
+                if(val) {
+                    const [y, m] = val.split('-'); let ys = document.getElementById('year-filter');
+                    if(!Array.from(ys.options).some(o => o.value === y)) ys.innerHTML += `<option value="${y}">${y}</option>`;
+                    ys.value = y; document.getElementById('month-filter').value = m; state.filters.year = y; state.filters.month = m;
+                }
+                recalculateAll();
+            });
+        }
+        function clearFilters() {
+            ['year-filter', 'month-filter', 'date-filter', 'size-filter'].forEach(id => { document.getElementById(id).value = id === 'year-filter' ? '2026' : (id === 'date-filter' ? '' : 'all'); });
+            state.filters = { year: '2026', month: 'all', exactDate: '', size: 'all' }; renderMoldSelect();
+        }
+
+        function formatNumber(num) { return num == null || isNaN(num) ? '0' : num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+        function formatDate(ds) { if(!ds) return ''; const [y, m, d] = ds.split('-'); return `${d}/${m}/${y}`; }
+
+        function openAddMoldModal() { document.getElementById('new-mold-name').value = ''; openModal('add-mold-modal'); }
+
+        async function saveNewMold() {
+            const name = document.getElementById('new-mold-name').value.trim();
+            const size = document.querySelector('input[name="new-mold-size"]:checked').value;
+            const icon = document.querySelector('input[name="new-mold-icon"]:checked').value;
+            
+            if (!name) return Swal.fire('ไม่สมบูรณ์', 'ระบุชื่อแม่พิมพ์', 'warning');
+            
+            const btnSave = document.getElementById('btn-save-add'); btnSave.disabled = true; btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...';
+            
+            // Generate locally & Sync to background
+            const newId = Date.now();
+            state.molds.push({
+                id: newId, name: name, size: size, icon: `fa-solid ${icon}`,
+                targetPM20k: 20000, targetPM130k: 130000,
+                thresholds20k: { safe: 10000, warning: 15000, critical: 20000 },
+                thresholds130k: { safe: 100000, warning: 120000, critical: 130000 },
+                logs: [], maintenance: []
+            });
+            
+            document.getElementById('size-filter').value = 'all'; state.filters.size = 'all'; state.currentMoldId = newId;
+            renderMoldSelect(); closeModal('add-mold-modal'); 
+            
+            triggerSync();
+            Swal.fire({ title: 'บันทึกสำเร็จ', icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+            
+            btnSave.disabled = false; btnSave.innerHTML = '<i class="fa-solid fa-save mr-1"></i> บันทึก';
+        }
+
+        // --- NATIVE BROWSER PRINT (Solving Thai Font Issue) ---
+        function printNative(targetSectionId) {
+            Swal.fire({ title: 'กำลังเตรียมหน้าปริ้น...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
+            // Expand all sections
+            ['sec1', 'sec2', 'sec3', 'sec4'].forEach(s => { 
+                const content = document.getElementById(`${s}-content`);
+                if(content) content.classList.remove('collapsed'); 
+            });
+
+            // Handle Display (Show only target, or show all if section-2 which means we might want landscape)
+            const sections = ['section-1', 'section-2', 'section-3', 'section-4'];
+            sections.forEach(s => {
+                const el = document.getElementById(s);
+                if (el) el.style.display = (s === targetSectionId) ? 'block' : 'none';
+            });
+
+            // Set body class for landscape if section-2 (Table)
+            if(targetSectionId === 'section-2') document.body.classList.add('print-landscape');
+            else document.body.classList.remove('print-landscape');
+
+            setTimeout(() => {
+                Swal.close();
+                window.print(); // Triggers Native Print Window
+                
+                // Restore View after print dialog is closed
+                sections.forEach(s => {
+                    const el = document.getElementById(s);
+                    if (el) el.style.display = 'block';
+                });
+                document.body.classList.remove('print-landscape');
+            }, 500);
+        }
+
+        function openTrendModal() { const mold = getCurrentMold(); if(!mold) return; openModal('trend-modal'); document.getElementById('trend-chart-title').innerText = `แนวโน้ม: ${mold.name}`; setTimeout(renderChart, 250); }
+        function renderChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d'); if (state.chartInstance) state.chartInstance.destroy();
+            const mold = getCurrentMold(); if(!mold) return;
+            const sorted = [...mold.logs].sort((a,b) => new Date(a.date) - new Date(b.date));
+            const labels = sorted.map(l => formatDate(l.date));
+            const t130Data = sorted.map(() => mold.targetPM130k); const t20Data = sorted.map(() => mold.targetPM20k);
+
+            state.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'สะสม 130k', data: sorted.map(l => l._accum130k), borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,0.1)', borderWidth: 3, fill: true, tension: 0.3, order: 3 },
+                        { label: 'สะสม 20k', data: sorted.map(l => l._accum20k), borderColor: '#9333ea', backgroundColor: 'transparent', borderWidth: 3, borderDash: [5,5], fill: false, tension: 0.3, order: 4 },
+                        { label: 'Target 130k', data: t130Data, borderColor: 'rgba(220, 38, 38, 0.8)', borderWidth: 2, borderDash: [10, 5], pointRadius: 0, fill: false, order: 1 },
+                        { label: 'Target 20k', data: t20Data, borderColor: 'rgba(245, 158, 11, 0.8)', borderWidth: 2, borderDash: [3, 3], pointRadius: 0, fill: false, order: 2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Kanit' }, usePointStyle: true } } }, scales: { y: { beginAtZero: true, suggestedMax: mold.targetPM130k * 1.15 } } }
+            });
+        }
+    </script>
+</body>
+</html>
